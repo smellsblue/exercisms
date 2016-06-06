@@ -2,55 +2,52 @@ module BookKeeping
   VERSION = 2
 end
 
-class RomanDigit
-  attr_reader :numeral, :value
-
-  def initialize(numeral, value, prefix = nil)
-    @numeral = numeral
-    @value = value
-    @prefix = prefix
-  end
-
-  def prefix_value
-    if @prefix
-      @prefix.value
-    else
-      0
-    end
-  end
-
-  def prefixed_numeral
-    "#{@prefix.numeral}#{numeral}"
-  end
-
-  def prefixed_value
-    value - prefix_value
-  end
-
-  def applicable?(number)
-    number >= prefixed_value
-  end
-
-  def apply(numerals, number)
-    if number >= value
-      numerals << numeral
-      number - value
-    elsif number >= prefixed_value
-      numerals << prefixed_numeral
-      number - prefixed_value
-    end
-  end
-end
-
 class RomanNumeral
-  I = RomanDigit.new("I", 1)
-  V = RomanDigit.new("V", 5, I)
-  X = RomanDigit.new("X", 10, I)
-  L = RomanDigit.new("L", 50, X)
-  C = RomanDigit.new("C", 100, X)
-  D = RomanDigit.new("D", 500, C)
-  M = RomanDigit.new("M", 1000, C)
-  DIGITS = [M, D, C, L, X, V, I].freeze
+  class AdditiveRule
+    def initialize(numeral, value)
+      @numeral = numeral
+      @value = value
+    end
+
+    def apply(numerals, number)
+      while number >= @value
+        numerals << @numeral
+        number -= @value
+      end
+
+      number
+    end
+  end
+
+  class SubtractiveRule
+    def initialize(numerals, replacement)
+      @numerals = numerals
+      @replacement = replacement
+    end
+
+    def apply(additive_numerals)
+      additive_numerals.gsub! @numerals, @replacement
+    end
+  end
+
+  ADDITIVE_RULES = [
+    AdditiveRule.new("M", 1000),
+    AdditiveRule.new("D", 500),
+    AdditiveRule.new("C", 100),
+    AdditiveRule.new("L", 50),
+    AdditiveRule.new("X", 10),
+    AdditiveRule.new("V", 5),
+    AdditiveRule.new("I", 1)
+  ].freeze
+
+  SUBTRACTIVE_RULES = [
+    SubtractiveRule.new("DCCCC", "CM"),
+    SubtractiveRule.new("CCCC", "CD"),
+    SubtractiveRule.new("LXXXX", "XC"),
+    SubtractiveRule.new("XXXX", "XL"),
+    SubtractiveRule.new("VIIII", "IX"),
+    SubtractiveRule.new("IIII", "IV")
+  ].freeze
 
   def initialize(number)
     @number = number
@@ -61,14 +58,26 @@ class RomanNumeral
   end
 
   def to_s
-    numerals = ""
-    value = to_i
+    result = apply_additive_rules(to_i)
+    apply_subtractive_rules(result)
+  end
 
-    DIGITS.each do |digit|
-      value = digit.apply(numerals, value) while digit.applicable?(value)
+  private
+
+  def apply_additive_rules(value)
+    "".tap do |result|
+      ADDITIVE_RULES.each do |rule|
+        value = rule.apply(result, value)
+      end
     end
+  end
 
-    numerals
+  def apply_subtractive_rules(numerals)
+    numerals.tap do |result|
+      SUBTRACTIVE_RULES.each do |rule|
+        rule.apply(result)
+      end
+    end
   end
 end
 
