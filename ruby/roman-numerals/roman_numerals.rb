@@ -2,34 +2,56 @@ module BookKeeping
   VERSION = 2
 end
 
-class RomanNumerizer
-  attr_reader :numerals
+class RomanDigit
+  attr_reader :numeral, :value
 
-  def initialize(value)
+  def initialize(numeral, value, prefix = nil)
+    @numeral = numeral
     @value = value
-    @numerals = ""
+    @prefix = prefix
   end
 
-  def romanize(value, numeral, prefix_value, prefix_numeral)
-    while @value >= value
-      @numerals << numeral
-      @value -= value
-    end
-
-    if @value >= value - prefix_value
-      @numerals << prefix_numeral
-      @numerals << numeral
-      @value -= value - prefix_value
+  def prefix_value
+    if @prefix
+      @prefix.value
+    else
+      0
     end
   end
 
-  def romanize_remaining
-    @numerals << "I" * @value
-    @value = 0
+  def prefixed_numeral
+    "#{@prefix.numeral}#{numeral}"
+  end
+
+  def prefixed_value
+    value - prefix_value
+  end
+
+  def applicable?(number)
+    number >= prefixed_value
+  end
+
+  def apply(numerals, number)
+    if number >= value
+      numerals << numeral
+      number - value
+    elsif number >= prefixed_value
+      numerals << prefixed_numeral
+      number - prefixed_value
+    end
   end
 end
 
 class RomanNumeral
+  I = RomanDigit.new("I", 1)
+  V = RomanDigit.new("V", 5, I)
+  X = RomanDigit.new("X", 10, I)
+  L = RomanDigit.new("L", 50, X)
+  C = RomanDigit.new("C", 100, X)
+  D = RomanDigit.new("D", 500, C)
+  M = RomanDigit.new("M", 1000, C)
+  DIGITS = [M, D, C, L, X, V, I].freeze
+
   def initialize(number)
     @number = number
   end
@@ -39,15 +61,14 @@ class RomanNumeral
   end
 
   def to_s
-    result = RomanNumerizer.new(to_i)
-    result.romanize 1000, "M", 100, "C"
-    result.romanize 500, "D", 100, "C"
-    result.romanize 100, "C", 10, "X"
-    result.romanize 50, "L", 10, "X"
-    result.romanize 10, "X", 1, "I"
-    result.romanize 5, "V", 1, "I"
-    result.romanize_remaining
-    result.numerals
+    numerals = ""
+    value = to_i
+
+    DIGITS.each do |digit|
+      value = digit.apply(numerals, value) while digit.applicable?(value)
+    end
+
+    numerals
   end
 end
 
